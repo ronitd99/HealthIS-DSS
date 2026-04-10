@@ -1,101 +1,109 @@
 import streamlit as st
-import pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
+from utils import inject_css
 
-from prep_data import X_train, X_test, y_train, y_test
-from database.db import fetch_patient, fetch_all_patient_ids, patient_to_features, MODEL_COLUMNS
+st.set_page_config(
+    page_title="AF Risk DSS",
+    page_icon="🫀",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+inject_css()
 
-# -----------------------------
-# TRAIN MODEL (on historical data from prep_data.py)
-# -----------------------------
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-model = LogisticRegression(max_iter=5000, class_weight="balanced")
-model.fit(X_train_scaled, y_train)
+# ── Hero ─────────────────────────────────────────────────────────────────────
+st.markdown("""
+<div class="hero">
+    <h1>🫀 Atrial Fibrillation Risk DSS</h1>
+    <p>A clinical decision support system for predicting in-hospital AF risk in post-MI patients</p>
+</div>
+""", unsafe_allow_html=True)
 
-# Precompute fill values (median/mode per column) from training data
-# Mirrors the imputation logic in prep_data.py
-fill_values = {}
-for col in MODEL_COLUMNS:
-    if col not in X_train.columns:
-        fill_values[col] = 0
-        continue
-    unique_count = X_train[col].dropna().nunique()
-    if unique_count <= 5:
-        mode = X_train[col].mode(dropna=True)
-        fill_values[col] = float(mode.iloc[0]) if not mode.empty else 0
-    else:
-        fill_values[col] = float(X_train[col].median())
+# ── Key stats ────────────────────────────────────────────────────────────────
+c1, c2, c3, c4 = st.columns(4)
+for col, val, label in zip(
+    [c1, c2, c3, c4],
+    ["1,700", "10%", "35", "8"],
+    ["Patient Records", "AF Incidence Rate", "Clinical Predictors", "Database Tables"],
+):
+    col.markdown(f"""
+    <div class="stat-card">
+        <div class="stat-value">{val}</div>
+        <div class="stat-label">{label}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
+# ── About ─────────────────────────────────────────────────────────────────────
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">About This System</div>', unsafe_allow_html=True)
 
-# -----------------------------
-# RISK CATEGORY FUNCTION
-# -----------------------------
-def risk_category(prob):
-    if prob < 0.2:
-        return "Low Risk"
-    elif prob < 0.5:
-        return "Medium Risk"
-    else:
-        return "High Risk"
+col_a, col_b = st.columns([3, 2])
+with col_a:
+    st.write("""
+    This Decision Support System helps clinicians assess the risk of **atrial fibrillation (AF)**
+    developing in patients hospitalized following a **myocardial infarction (MI)**.
 
+    AF is one of the most clinically significant complications of MI, occurring in 4–25% of patients
+    during the acute phase and associated with a **40% increase in mortality** compared to MI alone.
+    Early identification enables timely rhythm monitoring and preventive intervention.
 
-# -----------------------------
-# STREAMLIT APP
-# -----------------------------
-st.title("Atrial Fibrillation Risk DSS")
-st.subheader("Post-MI In-Hospital AF Risk Assessment")
+    The system uses a **balanced logistic regression model** trained on 1,700 patient records from
+    the UCI MI Complications dataset, predicting AF probability from 35 admission and history
+    variables — stratifying patients into Low, Medium, or High risk with tailored recommendations.
+    """)
+    st.markdown("""
+    <div class="info-box">
+        ⚕️ <strong>Clinical context:</strong> Preventive strategies for high-risk patients include
+        continuous ECG monitoring, early reperfusion therapy, and electrolyte management
+        (potassium and magnesium). This DSS supports — not replaces — clinical judgement.
+    </div>
+    """, unsafe_allow_html=True)
 
-st.write(
-    "This prototype estimates the risk of atrial fibrillation in hospitalized "
-    "myocardial infarction patients using admission and history variables."
+with col_b:
+    st.markdown("**Data Source**")
+    st.write(
+        "UCI Machine Learning Repository — Myocardial Infarction Complications dataset "
+        "(Krasnoyarsk Interdistrict Clinical Hospital, 1992–1995). ~1,700 patients, 124 raw variables."
+    )
+    st.markdown("**Model**")
+    st.write(
+        "Logistic regression with `class_weight='balanced'` to handle the 10:1 class imbalance. "
+        "Recall ≈ 0.49 | AUC ≈ 0.73."
+    )
+    st.markdown("**Database**")
+    st.write(
+        "PostgreSQL hosted on Supabase — 8 normalized tables linked by `patient_id`. "
+        "Raw values stored as NULL (no imputation); imputation applied in the analytics pipeline."
+    )
+    st.markdown("**Stakeholders**")
+    st.write("Cardiologists, hospitalists, and nursing staff in acute MI care settings.")
+
+# ── Navigation guide ──────────────────────────────────────────────────────────
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">Navigate the App</div>', unsafe_allow_html=True)
+
+pages = [
+    ("🔍", "Risk Assessment",    "Look up any patient by ID and get a real-time AF risk prediction with a probability gauge and clinical recommendation."),
+    ("📊", "EDA",                "Explore the dataset through interactive charts — class distribution, demographics, vitals, and risk factor breakdowns."),
+    ("📈", "Model Performance",  "Evaluate the model with a confusion matrix, ROC curve, precision-recall curve, and a 4-model comparison table."),
+    ("🔬", "What-If Analysis",   "Adjust a patient's clinical parameters interactively and see how their AF risk score changes in real time."),
+]
+cols = st.columns(4)
+for col, (icon, title, desc) in zip(cols, pages):
+    col.markdown(f"""
+    <div class="nav-card">
+        <h3>{icon} {title}</h3>
+        <p>{desc}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown(
+    '<div class="info-box">👈 Use the <strong>sidebar</strong> on the left to navigate between pages.</div>',
+    unsafe_allow_html=True,
 )
 
-# --- Patient selection ---
-st.sidebar.header("Patient Selection")
-input_mode = st.sidebar.radio("Select patient by", ["Patient ID", "Browse list"])
-
-patient_id = None
-
-if input_mode == "Patient ID":
-    patient_id = st.sidebar.number_input("Enter Patient ID", min_value=1, step=1, value=1)
-else:
-    with st.spinner("Loading patient list..."):
-        all_ids = fetch_all_patient_ids()
-    patient_id = st.sidebar.selectbox("Choose a patient", all_ids)
-
-# --- Risk assessment ---
-if st.sidebar.button("Assess Risk"):
-    with st.spinner("Fetching patient record from database..."):
-        row = fetch_patient(int(patient_id))
-
-    if row is None:
-        st.error(f"Patient ID {patient_id} not found in the database.")
-    else:
-        features_df = patient_to_features(row, fill_values)
-        features_scaled = scaler.transform(features_df)
-
-        prob = model.predict_proba(features_scaled)[0, 1]
-        risk = risk_category(prob)
-        actual = row.get("fibr_preds")
-
-        # --- Results ---
-        col1, col2 = st.columns(2)
-        col1.metric("AF Probability", f"{prob:.1%}")
-        col2.metric("Risk Category", risk)
-
-        if risk == "Low Risk":
-            st.success("**Recommendation:** Routine monitoring.")
-        elif risk == "Medium Risk":
-            st.warning("**Recommendation:** Increased rhythm surveillance and clinical review.")
-        else:
-            st.error("**Recommendation:** Close cardiac monitoring and consider early cardiology consultation.")
-
-        if actual is not None:
-            st.info(f"**Actual outcome (FIBR_PREDS):** {'AF occurred' if int(actual) == 1 else 'No AF'}")
-
-        st.write("### Patient Record")
-        display_df = features_df.T.copy()
-        display_df.columns = ["Value"]
-        st.dataframe(display_df)
+# ── Footer ────────────────────────────────────────────────────────────────────
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+st.caption(
+    "Healthcare DSS · Built with Streamlit + PostgreSQL (Supabase) · "
+    "Data: UCI MI Complications Dataset · Model: Balanced Logistic Regression"
+)
