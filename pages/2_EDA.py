@@ -5,17 +5,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from utils import inject_css, train_model, PRIMARY, AF_COLOR, NO_AF_COLOR
 
-st.set_page_config(page_title="EDA | AF DSS", page_icon="📊", layout="wide")
 inject_css()
 # ── Sidebar ────────────────────────────────────────────────────────────────
-st.sidebar.markdown("## 🫀 AF Risk DSS")
-st.sidebar.markdown("---")
-if st.sidebar.button("🏠 Home",              use_container_width=True): st.switch_page("app.py")
-if st.sidebar.button("🔍 Risk Assessment",   use_container_width=True): st.switch_page("pages/1_Risk_Assessment.py")
-if st.sidebar.button("📊 EDA",               use_container_width=True): st.switch_page("pages/2_EDA.py")
-if st.sidebar.button("📈 Model Performance", use_container_width=True): st.switch_page("pages/3_Model_Performance.py")
-if st.sidebar.button("🔬 What-If Analysis",  use_container_width=True): st.switch_page("pages/4_What_If.py")
-st.sidebar.markdown("---")
 
 model, scaler, X_train, X_test, y_train, y_test = train_model()
 
