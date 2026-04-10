@@ -1,23 +1,33 @@
 """
 load_data.py
-Reads MI.data and loads it into the dss_db PostgreSQL database.
+Reads MI.data and loads it into the PostgreSQL database.
 Raw '?' values are stored as NULL (no imputation — that stays in the model pipeline).
+
+Set your connection string in a .env file (never commit this):
+    DATABASE_URL=postgresql://user:password@host:5432/dbname
 
 Run from the project root:
     python3 database/load_data.py
 """
 
 import csv
+import os
 import psycopg2
+from psycopg2.extras import execute_values
 
 DATA_PATH = "data/MI.data"
 
-DB_CONFIG = {
-    "dbname": "dss_db",
-    "user": None,       # defaults to your OS username
-    "host": "localhost",
-    "port": 5432,
-}
+# Load .env file if present
+env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+if os.path.exists(env_path):
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
+
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # Raw column indices -> named fields (matches prep_data.py column_map)
 COL = {
@@ -105,105 +115,70 @@ def get(row, field):
 
 def insert_all(conn, rows):
     cur = conn.cursor()
-    counts = {t: 0 for t in [
-        "patients", "cv_history", "arrhythmia_history", "conduction_history",
-        "endocrine_history", "lung_history", "admission_vitals", "outcomes"
-    ]}
+    cur.execute("SET statement_timeout = 0")
+
+    # Build one tuple per row for each table
+    patients, cv, arrh, cond, endo, lung, vitals, outcomes = [], [], [], [], [], [], [], []
 
     for row in rows:
         pid = get(row, "patient_id")
         if pid is None:
-            continue  # skip rows with no ID
+            continue
 
-        # --- patients ---
-        cur.execute(
-            "INSERT INTO patients (patient_id, age, sex) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
-            (pid, get(row, "age"), get(row, "sex"))
-        )
-        counts["patients"] += cur.rowcount
+        patients.append((pid, get(row, "age"), get(row, "sex")))
+        cv.append((pid, get(row, "inf_anam"), get(row, "stenok_an"), get(row, "fk_stenok"),
+                   get(row, "ibs_post"), get(row, "ibs_nasl"), get(row, "gb"),
+                   get(row, "sim_gipert"), get(row, "dlit_ag"), get(row, "zsn_a")))
+        arrh.append((pid, get(row, "nr11"), get(row, "nr01"), get(row, "nr02"),
+                     get(row, "nr03"), get(row, "nr04"), get(row, "nr07"), get(row, "nr08")))
+        cond.append((pid, get(row, "np01"), get(row, "np04"), get(row, "np05"),
+                     get(row, "np07"), get(row, "np08"), get(row, "np09"), get(row, "np10")))
+        endo.append((pid, get(row, "endocr_01"), get(row, "endocr_02"), get(row, "endocr_03")))
+        lung.append((pid, get(row, "zab_leg_01"), get(row, "zab_leg_02"), get(row, "zab_leg_03"),
+                     get(row, "zab_leg_04"), get(row, "zab_leg_06")))
+        vitals.append((pid, get(row, "s_ad_kbrig"), get(row, "d_ad_kbrig")))
+        outcomes.append((pid, get(row, "fibr_preds"), get(row, "preds_tah"), get(row, "jelud_tah"),
+                         get(row, "fibr_jelud"), get(row, "a_v_blok"), get(row, "otek_lanc"),
+                         get(row, "razriv"), get(row, "dressler"), get(row, "zsn"),
+                         get(row, "rec_im"), get(row, "p_im_sten"), get(row, "let_is")))
 
-        # --- cv_history ---
-        cur.execute("""
-            INSERT INTO cv_history
-                (patient_id, inf_anam, stenok_an, fk_stenok, ibs_post, ibs_nasl, gb, sim_gipert, dlit_ag, zsn_a)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING
-        """, (
-            pid,
-            get(row, "inf_anam"), get(row, "stenok_an"), get(row, "fk_stenok"),
-            get(row, "ibs_post"), get(row, "ibs_nasl"), get(row, "gb"),
-            get(row, "sim_gipert"), get(row, "dlit_ag"), get(row, "zsn_a"),
-        ))
-        counts["cv_history"] += cur.rowcount
-
-        # --- arrhythmia_history ---
-        cur.execute("""
-            INSERT INTO arrhythmia_history
-                (patient_id, nr11, nr01, nr02, nr03, nr04, nr07, nr08)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING
-        """, (
-            pid,
-            get(row, "nr11"), get(row, "nr01"), get(row, "nr02"), get(row, "nr03"),
-            get(row, "nr04"), get(row, "nr07"), get(row, "nr08"),
-        ))
-        counts["arrhythmia_history"] += cur.rowcount
-
-        # --- conduction_history ---
-        cur.execute("""
-            INSERT INTO conduction_history
-                (patient_id, np01, np04, np05, np07, np08, np09, np10)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING
-        """, (
-            pid,
-            get(row, "np01"), get(row, "np04"), get(row, "np05"), get(row, "np07"),
-            get(row, "np08"), get(row, "np09"), get(row, "np10"),
-        ))
-        counts["conduction_history"] += cur.rowcount
-
-        # --- endocrine_history ---
-        cur.execute("""
-            INSERT INTO endocrine_history
-                (patient_id, endocr_01, endocr_02, endocr_03)
-            VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING
-        """, (pid, get(row, "endocr_01"), get(row, "endocr_02"), get(row, "endocr_03")))
-        counts["endocrine_history"] += cur.rowcount
-
-        # --- lung_history ---
-        cur.execute("""
-            INSERT INTO lung_history
-                (patient_id, zab_leg_01, zab_leg_02, zab_leg_03, zab_leg_04, zab_leg_06)
-            VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING
-        """, (
-            pid,
-            get(row, "zab_leg_01"), get(row, "zab_leg_02"), get(row, "zab_leg_03"),
-            get(row, "zab_leg_04"), get(row, "zab_leg_06"),
-        ))
-        counts["lung_history"] += cur.rowcount
-
-        # --- admission_vitals ---
-        cur.execute("""
-            INSERT INTO admission_vitals (patient_id, s_ad_kbrig, d_ad_kbrig)
-            VALUES (%s,%s,%s) ON CONFLICT DO NOTHING
-        """, (pid, get(row, "s_ad_kbrig"), get(row, "d_ad_kbrig")))
-        counts["admission_vitals"] += cur.rowcount
-
-        # --- outcomes ---
-        cur.execute("""
-            INSERT INTO outcomes
-                (patient_id, fibr_preds, preds_tah, jelud_tah, fibr_jelud,
-                 a_v_blok, otek_lanc, razriv, dressler, zsn, rec_im, p_im_sten, let_is)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING
-        """, (
-            pid,
-            get(row, "fibr_preds"), get(row, "preds_tah"), get(row, "jelud_tah"),
-            get(row, "fibr_jelud"), get(row, "a_v_blok"), get(row, "otek_lanc"),
-            get(row, "razriv"), get(row, "dressler"), get(row, "zsn"),
-            get(row, "rec_im"), get(row, "p_im_sten"), get(row, "let_is"),
-        ))
-        counts["outcomes"] += cur.rowcount
+    execute_values(cur, "INSERT INTO patients (patient_id, age, sex) VALUES %s ON CONFLICT DO NOTHING", patients)
+    execute_values(cur, """INSERT INTO cv_history
+        (patient_id, inf_anam, stenok_an, fk_stenok, ibs_post, ibs_nasl, gb, sim_gipert, dlit_ag, zsn_a)
+        VALUES %s ON CONFLICT DO NOTHING""", cv)
+    execute_values(cur, """INSERT INTO arrhythmia_history
+        (patient_id, nr11, nr01, nr02, nr03, nr04, nr07, nr08)
+        VALUES %s ON CONFLICT DO NOTHING""", arrh)
+    execute_values(cur, """INSERT INTO conduction_history
+        (patient_id, np01, np04, np05, np07, np08, np09, np10)
+        VALUES %s ON CONFLICT DO NOTHING""", cond)
+    execute_values(cur, """INSERT INTO endocrine_history
+        (patient_id, endocr_01, endocr_02, endocr_03)
+        VALUES %s ON CONFLICT DO NOTHING""", endo)
+    execute_values(cur, """INSERT INTO lung_history
+        (patient_id, zab_leg_01, zab_leg_02, zab_leg_03, zab_leg_04, zab_leg_06)
+        VALUES %s ON CONFLICT DO NOTHING""", lung)
+    execute_values(cur, """INSERT INTO admission_vitals
+        (patient_id, s_ad_kbrig, d_ad_kbrig)
+        VALUES %s ON CONFLICT DO NOTHING""", vitals)
+    execute_values(cur, """INSERT INTO outcomes
+        (patient_id, fibr_preds, preds_tah, jelud_tah, fibr_jelud,
+         a_v_blok, otek_lanc, razriv, dressler, zsn, rec_im, p_im_sten, let_is)
+        VALUES %s ON CONFLICT DO NOTHING""", outcomes)
 
     conn.commit()
     cur.close()
-    return counts
+
+    return {
+        "patients": len(patients),
+        "cv_history": len(cv),
+        "arrhythmia_history": len(arrh),
+        "conduction_history": len(cond),
+        "endocrine_history": len(endo),
+        "lung_history": len(lung),
+        "admission_vitals": len(vitals),
+        "outcomes": len(outcomes),
+    }
 
 
 def main():
@@ -212,7 +187,7 @@ def main():
     print(f"  {len(rows)} rows found")
 
     print("Connecting to dss_db ...")
-    conn = psycopg2.connect(**{k: v for k, v in DB_CONFIG.items() if v is not None})
+    conn = psycopg2.connect(DATABASE_URL)
 
     print("Inserting data ...")
     counts = insert_all(conn, rows)
