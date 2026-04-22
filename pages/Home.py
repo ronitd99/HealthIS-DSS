@@ -16,7 +16,7 @@ st.markdown("""
 c1, c2, c3, c4 = st.columns(4)
 for col, val, label in zip(
     [c1, c2, c3, c4],
-    ["1,700", "10%", "35", "8"],
+    ["1,700", "10%", "35", "10"],
     ["Patient Records", "AF Incidence Rate", "Clinical Predictors", "Database Tables"],
 ):
     col.markdown(f"""
@@ -34,39 +34,40 @@ col_a, col_b = st.columns([3, 2])
 with col_a:
     st.write("""
     This Decision Support System helps clinicians assess the risk of **atrial fibrillation (AF)**
-    developing in patients hospitalized following a **myocardial infarction (MI)**.
+    developing in patients hospitalized after a **myocardial infarction (MI)**.
 
-    AF is one of the most clinically significant complications of MI, occurring in 4–25% of patients
-    during the acute phase and associated with a **40% increase in mortality** compared to MI alone.
-    Early identification enables timely rhythm monitoring and preventive intervention.
+    AF is one of the most serious complications of MI, showing up in 4–25% of patients during
+    the acute phase. It's linked to a **40% increase in mortality** compared to MI alone, so
+    catching it early gives clinicians a real window to act.
 
-    The system uses a **regularised balanced logistic regression model** trained on 1,700 patient records from
-    the UCI MI Complications dataset, predicting AF probability from 35 admission and history
-    variables — stratifying patients into Low, Medium, or High risk with tailored recommendations.
+    The system runs a **regularized logistic regression model** trained on 1,700 patient records
+    from the UCI MI Complications dataset. It takes 35 admission and history variables as input
+    and outputs an AF probability score, grouping patients into Low, Medium, or High risk
+    with a matching clinical recommendation.
     """)
     st.markdown("""
     <div class="info-box">
-        ⚕️ <strong>Clinical context:</strong> Preventive strategies for high-risk patients include
-        continuous ECG monitoring, early reperfusion therapy, and electrolyte management
-        (potassium and magnesium). This DSS supports — not replaces — clinical judgement.
+        ⚕️ <strong>Clinical context:</strong> For high-risk patients, common preventive steps include
+        continuous ECG monitoring, early reperfusion therapy, and keeping electrolytes like potassium
+        and magnesium in check. This tool is meant to support clinical judgment, not replace it.
     </div>
     """, unsafe_allow_html=True)
 
 with col_b:
     st.markdown("**Data Source**")
     st.write(
-        "UCI Machine Learning Repository — Myocardial Infarction Complications dataset "
-        "(Krasnoyarsk Interdistrict Clinical Hospital, 1992–1995). ~1,700 patients, 124 raw variables."
+        "UCI Machine Learning Repository, Myocardial Infarction Complications dataset "
+        "(Krasnoyarsk Interdistrict Clinical Hospital, 1992–1995). About 1,700 patients across 124 raw variables."
     )
     st.markdown("**Model**")
     st.write(
-        "Logistic regression with `class_weight='balanced'` and tuned L2 regularisation (C=0.05) "
-        "to handle the 10:1 class imbalance. Recall ≈ 49% | AUC ≈ 0.61."
+        "Logistic regression with `class_weight='balanced'`, L2 regularization (C=0.05), "
+        "and a decision threshold of 0.30 to prioritize recall. Recall is around 57% with an AUC of 0.61."
     )
     st.markdown("**Database**")
     st.write(
-        "PostgreSQL hosted on Supabase — 8 normalized tables linked by `patient_id`. "
-        "Raw values stored as NULL (no imputation); imputation applied in the analytics pipeline."
+        "PostgreSQL hosted on Supabase with 10 normalized tables, all linked by `patient_id`. "
+        "Includes clinical code mappings (LOINC/ICD-10) and a provider table. Raw values are stored as-is and imputation happens in the analytics layer."
     )
     st.markdown("**Stakeholders**")
     st.write("Cardiologists, hospitalists, and nursing staff in acute MI care settings.")
@@ -77,9 +78,9 @@ st.markdown('<div class="section-title">Navigate the App</div>', unsafe_allow_ht
 
 pages = [
     ("🔍", "Risk Assessment",    "Look up any patient by ID and get a real-time AF risk prediction with a probability gauge and clinical recommendation."),
-    ("📊", "EDA",                "Explore the dataset through interactive charts — class distribution, demographics, vitals, and risk factor breakdowns."),
-    ("📈", "Model Performance",  "Evaluate the model with a confusion matrix, ROC curve, precision-recall curve, and a 4-model comparison table."),
-    ("🔬", "What-If Analysis",   "Adjust a patient's clinical parameters interactively and see how their AF risk score changes in real time."),
+    ("📊", "EDA",                "Explore the dataset with interactive charts covering class distribution, demographics, vitals, and key risk factors."),
+    ("📈", "Model Performance",  "Review model results including a confusion matrix, ROC curve, precision-recall curve, and a comparison across model configurations."),
+    ("🔬", "What-If Analysis",   "Tweak a patient's clinical parameters and see how the AF risk score responds in real time."),
 ]
 cols = st.columns(4)
 for col, (icon, title, desc) in zip(cols, pages):
@@ -100,5 +101,5 @@ st.markdown(
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 st.caption(
     "Healthcare DSS · Built with Streamlit + PostgreSQL (Supabase) · "
-    "Data: UCI MI Complications Dataset · Model: Balanced Logistic Regression (C=0.05)"
+    "Data: UCI MI Complications Dataset · Model: Balanced LR (C=0.05, threshold=0.30)"
 )

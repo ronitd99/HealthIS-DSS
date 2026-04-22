@@ -57,7 +57,7 @@ with c1:
     fig.update_traces(textposition="outside")
     fig.update_layout(showlegend=False, yaxis_title="Patients", **BASE)
     st.plotly_chart(fig, use_container_width=True)
-    st.caption("Heavy 9:1 class imbalance — the model uses `class_weight='balanced'` to compensate.")
+    st.caption("The dataset has a heavy 9:1 class imbalance, so the model uses `class_weight='balanced'` to avoid just predicting the majority class.")
 
 with c2:
     fig = px.histogram(plot_df, x="AGE", color="AF Status", barmode="overlay",
@@ -66,7 +66,7 @@ with c2:
                        title="Age Distribution by AF Status")
     fig.update_layout(xaxis_title="Age (years)", yaxis_title="Patients", **BASE)
     st.plotly_chart(fig, use_container_width=True)
-    st.caption("AF patients skew slightly older — consistent with clinical literature.")
+    st.caption("AF patients tend to be a bit older, which lines up with what the clinical literature shows.")
 
 with c3:
     sex_df = (plot_df.groupby("SEX")["FIBR_PREDS"].mean().reset_index()
@@ -95,7 +95,7 @@ with c4:
     fig.update_layout(yaxis_title="", xaxis_title="Coefficient",
                       legend=dict(orientation="h", y=-0.18), **BASE)
     st.plotly_chart(fig, use_container_width=True)
-    st.caption("Larger magnitude = stronger influence on predicted AF risk.")
+    st.caption("The bigger the coefficient, the more that feature moves the predicted AF probability up or down.")
 
 with c5:
     fig = px.box(plot_df, x="AF Status", y="S_AD_KBRIG", color="AF Status",
@@ -114,7 +114,7 @@ with c6:
 # ── Section 3: AF rate by binary risk factors ─────────────────────────────────
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 st.markdown('<div class="section-title">AF Rate by Key Binary Risk Factors</div>', unsafe_allow_html=True)
-st.caption("Percentage of patients who developed AF, split by whether each risk factor was present or absent.")
+st.caption("Shows what share of patients developed AF based on whether each risk factor was present or not.")
 
 binary_cols = [c for c in FRIENDLY if c in df_model.columns]
 rates = []

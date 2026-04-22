@@ -12,12 +12,12 @@ fill_values = get_fill_values()
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown('<h1 style="color:#1E3A5F; margin-bottom:0.2rem;">🔬 What-If Analysis</h1>', unsafe_allow_html=True)
-st.write("Adjust a patient's clinical parameters and watch the AF risk score update in real time.")
+st.write("Change a patient's clinical values below and the AF risk score updates on the right as you go.")
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
 # ── Sidebar: load a real patient ──────────────────────────────────────────────
 st.sidebar.header("Base Patient")
-st.sidebar.write("Start from population averages or load a real patient from the database.")
+st.sidebar.write("You can start from population averages or pull in a real patient from the database.")
 use_db = st.sidebar.checkbox("Load from database", value=False)
 
 # Use a session-state key suffix so sliders reset when a new patient is loaded
@@ -48,7 +48,7 @@ key_sfx = st.session_state["wif_key"]
 
 # ── Controls + live gauge ─────────────────────────────────────────────────────
 st.markdown('<div class="section-title">Clinical Parameters</div>', unsafe_allow_html=True)
-st.caption("Sliders default to population averages. Load a real patient from the sidebar to start from their values.")
+st.caption("Values start at population averages. Use the sidebar to load a specific patient if you want to start from their data.")
 
 ctrl_col, gauge_col = st.columns([3, 2])
 
@@ -114,7 +114,7 @@ with gauge_col:
 # ── Scenario comparison ───────────────────────────────────────────────────────
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 st.markdown('<div class="section-title">Scenario Comparison</div>', unsafe_allow_html=True)
-st.caption("Save the current parameter configuration as a named scenario and compare multiple what-if cases.")
+st.caption("Name and save the current parameter set to compare it against other configurations.")
 
 s_col1, s_col2 = st.columns([2, 1])
 with s_col1:
@@ -167,6 +167,6 @@ if st.session_state.get("scenarios"):
 else:
     st.markdown("""
     <div class="info-box">
-        Adjust parameters above and click <strong>Save Scenario</strong> to compare multiple configurations side by side.
+        Set the parameters above and hit <strong>Save Scenario</strong> to start building a comparison.
     </div>
     """, unsafe_allow_html=True)
