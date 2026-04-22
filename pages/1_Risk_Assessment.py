@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from utils import inject_css, train_model, get_fill_values, risk_category, make_gauge
+from utils import inject_css, train_model, get_fill_values, risk_category, make_gauge, THRESHOLD
 from database.db import fetch_patient, fetch_all_patient_ids, patient_to_features
 
 inject_css()
@@ -23,23 +23,23 @@ else:
 assess = st.sidebar.button("Assess Risk", type="primary", use_container_width=True)
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("""
+st.sidebar.markdown(f"""
 **Risk thresholds**
-- 🟢 < 20% → Low Risk
-- 🟡 20–50% → Medium Risk
-- 🔴 ≥ 50% → High Risk
+- 🟢 < 15% → Low Risk
+- 🟡 15–{int(THRESHOLD*100)}% → Medium Risk
+- 🔴 ≥ {int(THRESHOLD*100)}% → High Risk
 """)
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown('<h1 style="color:#1E3A5F; margin-bottom:0.2rem;">🔍 Patient Risk Assessment</h1>', unsafe_allow_html=True)
-st.write("Fetch a patient record from the shared database and compute their in-hospital AF risk.")
+st.write("Look up a patient from the database and get their predicted AF risk with a clinical recommendation.")
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
 # ── Results ───────────────────────────────────────────────────────────────────
 if not assess:
     st.markdown("""
     <div class="info-box">
-        Select a patient in the sidebar and click <strong>Assess Risk</strong> to begin.
+        Pick a patient from the sidebar and click <strong>Assess Risk</strong> to get started.
     </div>
     """, unsafe_allow_html=True)
 else:
@@ -81,7 +81,7 @@ else:
         with o_col:
             if actual is not None:
                 af_occurred = int(actual) == 1
-                correct = (af_occurred and prob >= 0.5) or (not af_occurred and prob < 0.5)
+                correct = (af_occurred and prob >= THRESHOLD) or (not af_occurred and prob < THRESHOLD)
                 bg   = "#FEE2E2" if af_occurred else "#D1FAE5"
                 clr  = "#991B1B" if af_occurred else "#065F46"
                 olbl = "AF Occurred" if af_occurred else "No AF"

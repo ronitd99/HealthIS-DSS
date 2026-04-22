@@ -9,7 +9,7 @@ from sklearn.metrics import (
     precision_recall_curve, accuracy_score,
     precision_score, recall_score, f1_score,
 )
-from utils import inject_css, train_model, PRIMARY, AF_COLOR, NO_AF_COLOR
+from utils import inject_css, train_model, PRIMARY, AF_COLOR, NO_AF_COLOR, THRESHOLD
 
 inject_css()
 # ── Sidebar ────────────────────────────────────────────────────────────────
@@ -17,8 +17,8 @@ inject_css()
 model, scaler, X_train, X_test, y_train, y_test = train_model()
 X_train_scaled = scaler.transform(X_train)
 X_test_scaled  = scaler.transform(X_test)
-y_pred = model.predict(X_test_scaled)
 y_prob = model.predict_proba(X_test_scaled)[:, 1]
+y_pred = (y_prob >= THRESHOLD).astype(int)   # threshold = 0.3
 
 acc  = accuracy_score(y_test, y_pred)
 prec = precision_score(y_test, y_pred, zero_division=0)
@@ -31,7 +31,7 @@ BASE = dict(font=dict(family="Inter"), paper_bgcolor="rgba(0,0,0,0)", plot_bgcol
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown('<h1 style="color:#1E3A5F; margin-bottom:0.2rem;">📈 Model Performance</h1>', unsafe_allow_html=True)
-st.write("Evaluation of the **balanced logistic regression** on the held-out test set (20% of 1,700 patients).")
+st.write("Results for the **balanced logistic regression** (threshold = 0.30) on the held-out test set, which is 20% of the 1,700 patient dataset.")
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
 # ── Key metric cards ──────────────────────────────────────────────────────────
@@ -48,11 +48,12 @@ for col, label, val in zip(
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("""
+st.markdown(f"""
 <div class="warn-box">
-    ⚠️ <strong>Recall is prioritised over precision</strong> in this clinical setting — missing an AF case (false negative)
-    is more costly than a false alarm. Stronger L2 regularisation (C=0.05) improves AUC over the default (C=1)
-    while maintaining the same recall.
+    ⚠️ <strong>Recall matters more than precision here.</strong> In a clinical setting, missing an AF case
+    is a much bigger problem than a false alarm. We set the decision threshold to <strong>{THRESHOLD}</strong>
+    instead of the default 0.5, which pushes recall from 49% up to 57% by catching more borderline cases.
+    We also tuned L2 regularization to C=0.05, which gave a small bump in AUC over the default C=1.
 </div>
 """, unsafe_allow_html=True)
 
@@ -79,9 +80,9 @@ with c1:
     st.plotly_chart(fig, use_container_width=True)
     st.markdown(f"""
     <div class="info-box">
-        Of <strong>{len(y_test)}</strong> test patients — <strong>{tp}</strong> AF cases correctly flagged
+        Out of <strong>{len(y_test)}</strong> test patients: <strong>{tp}</strong> AF cases correctly caught
         (recall {rec:.1%}), <strong>{fn}</strong> missed, <strong>{fp}</strong> false alarms,
-        <strong>{tn}</strong> true negatives.
+        and <strong>{tn}</strong> true negatives.
     </div>
     """, unsafe_allow_html=True)
 
@@ -150,7 +151,7 @@ with c4:
 # ── Model comparison table ────────────────────────────────────────────────────
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 st.markdown('<div class="section-title">4-Model Comparison</div>', unsafe_allow_html=True)
-st.caption("Replicating the experiment from model_experiments.py — same train/test split.")
+st.caption("All models use the same train/test split for a fair comparison.")
 
 @st.cache_data
 def compute_comparison():
@@ -164,8 +165,8 @@ def compute_comparison():
     configs = {
         "Baseline LR (no balancing)":      (m_base,  X_test_scaled, 0.5),
         "Balanced LR (C=1)":               (m_bal,   X_test_scaled, 0.5),
-        "Balanced LR (C=0.05) ✓":          (m_tuned, X_test_scaled, 0.5),
-        "Balanced LR + Threshold 0.3":     (m_tuned, X_test_scaled, 0.3),
+        "Balanced LR (C=0.05)":            (m_tuned, X_test_scaled, 0.5),
+        "Balanced LR (C=0.05, thresh=0.3) ✓": (m_tuned, X_test_scaled, 0.3),
         "Gradient Boosting (AUC ref)":     (m_gbm,   X_test_scaled, 0.5),
     }
     rows = []
@@ -187,6 +188,6 @@ with st.spinner("Computing model comparison…"):
     comp_df = compute_comparison()
 
 st.dataframe(comp_df, use_container_width=True)
-st.caption("✓ = Selected model. L2 regularisation (C=0.05) improves AUC vs the default (C=1). "
-           "Threshold 0.3 row shows recall gains from lowering the decision boundary. "
-           "GBM achieves higher AUC but at the cost of recall — LR remains the clinical choice.")
+st.caption("✓ = model used in the app. Dropping the threshold from 0.5 to 0.3 trades some precision for "
+           "better recall, going from 49% to 57% on AF cases caught. For an early-warning tool that's "
+           "a worthwhile tradeoff. The GBM had similar AUC but weaker recall so we stuck with LR.")
