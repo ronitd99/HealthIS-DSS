@@ -1,42 +1,16 @@
 """
 db.py
-Database connection and patient query utilities for the DSS app.
-Reads DATABASE_URL from .env (never committed to git).
+Database utilities using SQLite (patients.db bundled with the repo).
+No credentials or network connection required.
 """
 
 import os
+import sqlite3
 from typing import Optional
-import psycopg2
-import psycopg2.extras
 import pandas as pd
 
-# Load .env if present (local dev)
-_env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
-if os.path.exists(_env_path):
-    with open(_env_path) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip())
+DB_PATH = os.path.join(os.path.dirname(__file__), "patients.db")
 
-def get_connection():
-    # Read URL fresh each call so st.secrets is available (Streamlit Cloud loads
-    # secrets after module import, so we can't read them at module level).
-    url = None
-    try:
-        import streamlit as st
-        url = st.secrets.get("DATABASE_URL")
-    except Exception:
-        pass
-    if not url:
-        url = os.environ.get("DATABASE_URL", "")
-    if url and "sslmode" not in url:
-        url += ("&" if "?" in url else "?") + "sslmode=require"
-    return psycopg2.connect(url)
-
-
-# Columns the model expects, in exact order from prep_data.py
 MODEL_COLUMNS = [
     "AGE", "SEX",
     "INF_ANAM", "STENOK_AN", "FK_STENOK", "IBS_POST", "IBS_NASL",
@@ -51,23 +25,23 @@ MODEL_COLUMNS = [
 _PATIENT_QUERY = """
 SELECT
     p.patient_id,
-    p.age        AS "AGE",
-    p.sex        AS "SEX",
-    cv.inf_anam  AS "INF_ANAM",
-    cv.stenok_an AS "STENOK_AN",
-    cv.fk_stenok AS "FK_STENOK",
-    cv.ibs_post  AS "IBS_POST",
-    cv.ibs_nasl  AS "IBS_NASL",
-    cv.gb        AS "GB",
-    cv.sim_gipert AS "SIM_GIPERT",
-    cv.dlit_ag   AS "DLIT_AG",
-    cv.zsn_a     AS "ZSN_A",
+    p.age        AS AGE,
+    p.sex        AS SEX,
+    cv.inf_anam  AS INF_ANAM,
+    cv.stenok_an AS STENOK_AN,
+    cv.fk_stenok AS FK_STENOK,
+    cv.ibs_post  AS IBS_POST,
+    cv.ibs_nasl  AS IBS_NASL,
+    cv.gb        AS GB,
+    cv.sim_gipert AS SIM_GIPERT,
+    cv.dlit_ag   AS DLIT_AG,
+    cv.zsn_a     AS ZSN_A,
     a.nr11, a.nr01, a.nr02, a.nr03, a.nr04, a.nr07, a.nr08,
     c.np01, c.np04, c.np05, c.np07, c.np08, c.np09, c.np10,
     e.endocr_01, e.endocr_02, e.endocr_03,
     l.zab_leg_01, l.zab_leg_02, l.zab_leg_03, l.zab_leg_04, l.zab_leg_06,
-    v.s_ad_kbrig AS "S_AD_KBRIG",
-    v.d_ad_kbrig AS "D_AD_KBRIG",
+    v.s_ad_kbrig AS S_AD_KBRIG,
+    v.d_ad_kbrig AS D_AD_KBRIG,
     o.fibr_preds
 FROM patients p
 JOIN cv_history       cv USING (patient_id)
@@ -77,33 +51,19 @@ JOIN endocrine_history  e USING (patient_id)
 JOIN lung_history       l USING (patient_id)
 JOIN admission_vitals   v USING (patient_id)
 JOIN outcomes           o USING (patient_id)
-WHERE p.patient_id = %s
+WHERE p.patient_id = ?
 """
 
 
 def fetch_patient(patient_id: int) -> Optional[dict]:
     """Return a dict with all fields for a given patient_id, or None if not found."""
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
     cur.execute(_PATIENT_QUERY, (patient_id,))
     row = cur.fetchone()
-    cur.close()
     conn.close()
     return dict(row) if row else None
-
-
-def fetch_all_patient_ids() -> list:
-    """Return sorted list of all patient_ids in the database."""
-    try:
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT patient_id FROM patients ORDER BY patient_id")
-        ids = [r[0] for r in cur.fetchall()]
-        cur.close()
-        conn.close()
-        return ids
-    except Exception:
-        return []
 
 
 def patient_to_features(row: dict, fill_values: dict) -> pd.DataFrame:
