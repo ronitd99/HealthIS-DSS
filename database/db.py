@@ -35,7 +35,10 @@ DATABASE_URL = _get_database_url()
 
 
 def get_connection():
-    return psycopg2.connect(DATABASE_URL, sslmode="require")
+    url = DATABASE_URL or ""
+    if "sslmode" not in url:
+        url += ("&" if "?" in url else "?") + "sslmode=require"
+    return psycopg2.connect(url)
 
 
 # Columns the model expects, in exact order from prep_data.py
