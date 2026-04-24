@@ -54,7 +54,7 @@ st.markdown(f"""
 <div class="warn-box">
     ⚠️ <strong>Recall matters more than precision here.</strong> In a clinical setting, missing an AF case
     is a much bigger problem than a false alarm. We set the decision threshold to <strong>{THRESHOLD}</strong>
-    instead of the default 0.5, which pushes recall from 49% up to 57% by catching more borderline cases.
+    instead of the default 0.5, which pushes recall from 49% up to 74% by catching more borderline cases.
     We also tuned L2 regularization to C=0.05, which gave a small bump in AUC over the default C=1.
 </div>
 """, unsafe_allow_html=True)
@@ -191,5 +191,5 @@ with st.spinner("Computing model comparison…"):
 
 st.dataframe(comp_df, use_container_width=True)
 st.caption("✓ = model used in the app. Dropping the threshold from 0.5 to 0.3 trades some precision for "
-           "better recall, going from 49% to 57% on AF cases caught. For an early-warning tool that's "
+           "better recall, going from 49% to 74% on AF cases caught. For an early-warning tool that's "
            "a worthwhile tradeoff. The GBM had similar AUC but weaker recall so we stuck with LR.")

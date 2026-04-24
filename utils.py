@@ -16,7 +16,7 @@ NO_AF_COLOR = "#4C9BE8"
 
 # ── Decision threshold ───────────────────────────────────────────────────────
 # Lowered from 0.5 → 0.3 to maximise recall in this clinical AF detection task.
-# At threshold 0.3 the model catches 57% of AF cases vs 49% at 0.5,
+# At threshold 0.3 the model catches 74% of AF cases vs 49% at 0.5,
 # at the cost of more false alarms — an acceptable trade-off for early detection.
 THRESHOLD = 0.3
 

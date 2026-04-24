@@ -64,7 +64,7 @@ with col_b:
     st.markdown("**Model**")
     st.write(
         "Logistic regression with `class_weight='balanced'`, L2 regularization (C=0.05), "
-        "and a decision threshold of 0.30 to prioritize recall. Recall is around 57% with an AUC of 0.61."
+        "and a decision threshold of 0.30 to prioritize recall. Recall is around 74% with an AUC of 0.61."
     )
     st.markdown("**Database**")
     st.write(
