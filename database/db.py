@@ -20,23 +20,18 @@ if os.path.exists(_env_path):
                 k, v = line.split("=", 1)
                 os.environ.setdefault(k.strip(), v.strip())
 
-def _get_database_url():
-    # Try Streamlit secrets first (Streamlit Cloud), then fall back to env var (local)
+def get_connection():
+    # Read URL fresh each call so st.secrets is available (Streamlit Cloud loads
+    # secrets after module import, so we can't read them at module level).
+    url = None
     try:
         import streamlit as st
         url = st.secrets.get("DATABASE_URL")
-        if url:
-            return url
     except Exception:
         pass
-    return os.environ.get("DATABASE_URL")
-
-DATABASE_URL = _get_database_url()
-
-
-def get_connection():
-    url = DATABASE_URL or ""
-    if "sslmode" not in url:
+    if not url:
+        url = os.environ.get("DATABASE_URL", "")
+    if url and "sslmode" not in url:
         url += ("&" if "?" in url else "?") + "sslmode=require"
     return psycopg2.connect(url)
 
